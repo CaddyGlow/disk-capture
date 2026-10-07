@@ -7,6 +7,11 @@ license = "MIT AND LGPL-2.1-only AND LGPL-2.1-or-later"
 repository = "https://github.com/CaddyGlow/disk-capture"
 description = "Read-only offline NTFS metadata and logical-stream capture over virtdisk readers"
 
+readme = "README.md"
+homepage = "https://github.com/CaddyGlow/disk-capture"
+keywords = ["ntfs", "disk", "capture", "windows"]
+categories = ["filesystem", "parser-implementations"]
+
 [dependencies]
 ntfs = { package = "caddy-ntfs", version = "0.4.1", path = "../caddy-ntfs" }
 virtdisk = { version = "0.1.0", path = "../virtdisk" }

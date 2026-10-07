@@ -13,10 +13,15 @@ permissions:
   contents: read
 defaults:
   run:
+    shell: bash
     working-directory: disk-capture
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -24,22 +29,22 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: ${{ vars.VIRTDISK_REPOSITORY || format('{0}/virtdisk', github.repository_owner) }}
-          ref: ${{ vars.VIRTDISK_REF }}
+          ref: ${{ vars.VIRTDISK_REF || 'main' }}
           path: virtdisk
       - uses: actions/checkout@v7
         with:
           repository: ${{ vars.CADDY_NTFS_REPOSITORY || format('{0}/caddy-ntfs', github.repository_owner) }}
-          ref: ${{ vars.CADDY_NTFS_REF }}
+          ref: ${{ vars.CADDY_NTFS_REF || 'main' }}
           path: caddy-ntfs
       - uses: actions/checkout@v7
         with:
           repository: ${{ vars.MS_COMPRESS_REPOSITORY || format('{0}/ms-compress', github.repository_owner) }}
-          ref: ${{ vars.MS_COMPRESS_REF }}
+          ref: ${{ vars.MS_COMPRESS_REF || 'main' }}
           path: ms-compress
       - uses: actions/checkout@v7
         with:
           repository: ${{ vars.PARTMGR_REPOSITORY || format('{0}/partmgr', github.repository_owner) }}
-          ref: ${{ vars.PARTMGR_REF }}
+          ref: ${{ vars.PARTMGR_REF || 'main' }}
           path: partmgr
       - uses: dtolnay/rust-toolchain@1.99.0
         with:
@@ -51,9 +56,8 @@ jobs:
       - run: cargo clippy --all-targets --all-features --locked -- -D warnings
       - run: cargo test --all-features --locked
 
-  windows:
-    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-    runs-on: windows-latest
+  independent-fixtures:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
@@ -61,25 +65,28 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: ${{ vars.VIRTDISK_REPOSITORY || format('{0}/virtdisk', github.repository_owner) }}
-          ref: ${{ vars.VIRTDISK_REF }}
+          ref: ${{ vars.VIRTDISK_REF || 'main' }}
           path: virtdisk
       - uses: actions/checkout@v7
         with:
           repository: ${{ vars.CADDY_NTFS_REPOSITORY || format('{0}/caddy-ntfs', github.repository_owner) }}
-          ref: ${{ vars.CADDY_NTFS_REF }}
+          ref: ${{ vars.CADDY_NTFS_REF || 'main' }}
           path: caddy-ntfs
       - uses: actions/checkout@v7
         with:
           repository: ${{ vars.MS_COMPRESS_REPOSITORY || format('{0}/ms-compress', github.repository_owner) }}
-          ref: ${{ vars.MS_COMPRESS_REF }}
+          ref: ${{ vars.MS_COMPRESS_REF || 'main' }}
           path: ms-compress
       - uses: actions/checkout@v7
         with:
           repository: ${{ vars.PARTMGR_REPOSITORY || format('{0}/partmgr', github.repository_owner) }}
-          ref: ${{ vars.PARTMGR_REF }}
+          ref: ${{ vars.PARTMGR_REF || 'main' }}
           path: partmgr
       - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: disk-capture -> target
-      - run: cargo test --all-features --locked
+      - name: Install independent NTFS fixture tools
+        run: sudo apt-get update && sudo apt-get install -y ntfs-3g
+      - run: cargo test --test ntfs3g --locked -- --ignored captures_independently_formatted_ntfs_and_ads_without_mounting
+      - run: cargo test --test ntfs3g --locked -- --ignored caller_tightened_metadata_cache_attribute_and_work_limits_reject_real_ntfs

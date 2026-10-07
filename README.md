@@ -6,11 +6,11 @@ attributes, three Windows timestamps, raw self-relative security descriptors,
 reparse buffers, extended attributes, object IDs, and deferred logical streams.
 The WIM adapter lives in the `wim` crate's `disk-capture` feature.
 
-Directory indexes and MFT resolution use Colin Finck's `ntfs` 0.4.0 (MIT OR
+Directory indexes and MFT resolution use `caddy-ntfs` 0.4.1, a fork of Colin Finck's `ntfs` 0.4.0 (MIT OR
 Apache-2.0). Raw attribute decoding adds update-sequence validation, attribute
 list reference checks, initialized-data zeroing, sparse extents, LZNT1 units,
 `$Secure:$SDS` hash checks and `$SII` index cross-validation, and WOF FILE-provider XPRESS/LZX chunks. Compression
-uses the workspace's LGPL `ms-compress`; this crate's combined license records
+uses LGPL `ms-compress`; this crate's combined license records
 that dependency. Object IDs resolve birth identifiers through `$Extend/$ObjId:$O`,
 with file-reference and attribute cross-checks. No FFI or unsafe code is used.
 
@@ -72,3 +72,8 @@ Primary format references:
 - [Microsoft LZNT1 specification](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-xca/124d9696-a69c-409a-a055-2562fbe255f9)
 - [WOF FILE provider format and decoder reference](https://github.com/ebiggers/ntfs-3g-system-compression)
 - [NTFS extended attribute representation](https://github.com/tuxera/ntfs-3g/wiki/Using-Extended-Attributes)
+
+## Releases
+
+CI checks formatting, Clippy and tests on Linux and Windows. A matching version tag runs validation, verifies and publishes the crate to crates.io, then creates its GitHub Release with the crate and SHA-256 checksums.
+For source builds, clone `virtdisk`, `partmgr`, `caddy-ntfs` and `ms-compress` beside this repository. CI also generates and captures independent ntfs-3g fixtures.

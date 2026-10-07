@@ -1,0 +1,85 @@
+name: disk-capture CI
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**/*.md', 'docs/**']
+  pull_request:
+    paths-ignore: ['**/*.md', 'docs/**']
+  workflow_call:
+concurrency:
+  group: ${{ github.workflow }}-checks-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+permissions:
+  contents: read
+defaults:
+  run:
+    working-directory: disk-capture
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: disk-capture
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.VIRTDISK_REPOSITORY || format('{0}/virtdisk', github.repository_owner) }}
+          ref: ${{ vars.VIRTDISK_REF }}
+          path: virtdisk
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.CADDY_NTFS_REPOSITORY || format('{0}/caddy-ntfs', github.repository_owner) }}
+          ref: ${{ vars.CADDY_NTFS_REF }}
+          path: caddy-ntfs
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.MS_COMPRESS_REPOSITORY || format('{0}/ms-compress', github.repository_owner) }}
+          ref: ${{ vars.MS_COMPRESS_REF }}
+          path: ms-compress
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.PARTMGR_REPOSITORY || format('{0}/partmgr', github.repository_owner) }}
+          ref: ${{ vars.PARTMGR_REF }}
+          path: partmgr
+      - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: disk-capture -> target
+      - run: cargo fmt -- --check
+      - run: cargo clippy --all-targets --all-features --locked -- -D warnings
+      - run: cargo test --all-features --locked
+
+  windows:
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: disk-capture
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.VIRTDISK_REPOSITORY || format('{0}/virtdisk', github.repository_owner) }}
+          ref: ${{ vars.VIRTDISK_REF }}
+          path: virtdisk
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.CADDY_NTFS_REPOSITORY || format('{0}/caddy-ntfs', github.repository_owner) }}
+          ref: ${{ vars.CADDY_NTFS_REF }}
+          path: caddy-ntfs
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.MS_COMPRESS_REPOSITORY || format('{0}/ms-compress', github.repository_owner) }}
+          ref: ${{ vars.MS_COMPRESS_REF }}
+          path: ms-compress
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.PARTMGR_REPOSITORY || format('{0}/partmgr', github.repository_owner) }}
+          ref: ${{ vars.PARTMGR_REF }}
+          path: partmgr
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: disk-capture -> target
+      - run: cargo test --all-features --locked

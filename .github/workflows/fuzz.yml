@@ -1,0 +1,46 @@
+name: Independent fuzz campaigns
+on:
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: Iterations per target
+        type: string
+        default: '10000'
+  schedule:
+    - cron: '17 4 * * 1'
+permissions:
+  contents: read
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.96.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: independent-fuzz
+          workspaces: |
+            . -> target
+            fuzz -> target
+      - name: Install native instrumentation
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential binutils-dev libunwind-dev liblzma-dev
+          cargo install honggfuzz --version 0.5.62 --locked
+      - name: Validate independent harnesses
+        run: |
+          cargo fmt --manifest-path fuzz/Cargo.toml -- --check
+          cargo clippy --manifest-path fuzz/Cargo.toml --all-targets --locked -- -D warnings
+          cargo test --manifest-path fuzz/Cargo.toml --locked
+      - name: Run instrumented campaigns
+        env:
+          ITERATIONS: ${{ inputs.iterations || '10000' }}
+        run: python3 scripts/fuzz-campaign.py --iterations "$ITERATIONS"
+      - name: Preserve campaign receipts and findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-evidence
+          path: target/fuzz-runs
+          if-no-files-found: warn

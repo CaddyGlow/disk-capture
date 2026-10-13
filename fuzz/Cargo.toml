@@ -1,0 +1,20 @@
+[package]
+name = "disk-capture-fuzz"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+publish = false
+
+[workspace]
+
+[dependencies]
+honggfuzz = "=0.5.62"
+disk-capture = { path = ".." }
+virtdisk = "0.3.1"
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[profile.release]
+debug = 1
+overflow-checks = true

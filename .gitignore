@@ -2,3 +2,8 @@
 /dist/
 __pycache__/
 .direnv/
+
+/fuzz/target/
+/fuzz/corpus/
+/fuzz/hfuzz_target/
+/fuzz/hfuzz_workspace/

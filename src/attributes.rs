@@ -108,6 +108,7 @@ fn record(
     context.record = Some(file.file_record_number() | (u64::from(file.sequence_number()) << 48));
     record_inner(ntfs, source, file, geometry, cursor)
         .map_err(|e| context.error("parse NTFS record", e))
+        .map_err(io::Error::from)
 }
 fn record_inner(
     ntfs: &Ntfs,
@@ -338,7 +339,9 @@ fn build(
     if let Some(budget) = source.budget() {
         budget.metadata(parts.iter().map(|a| a.runs.len() as u64 * 32).sum())?;
     }
-    build_inner(parts, source, geometry).map_err(|e| context.error("decode NTFS attribute", e))
+    build_inner(parts, source, geometry)
+        .map_err(|e| context.error("decode NTFS attribute", e))
+        .map_err(io::Error::from)
 }
 fn build_inner(
     parts: &[RawAttribute],
@@ -416,7 +419,9 @@ fn build_inner(
     }))
 }
 fn bytes(data: &dyn ReadAt, maximum: usize) -> io::Result<Vec<u8>> {
-    bytes_inner(data, maximum).map_err(|e| data.context().error("materialize NTFS attribute", e))
+    bytes_inner(data, maximum)
+        .map_err(|e| data.context().error("materialize NTFS attribute", e))
+        .map_err(io::Error::from)
 }
 fn bytes_inner(data: &dyn ReadAt, maximum: usize) -> io::Result<Vec<u8>> {
     let maximum = data.budget().map_or(maximum as u64, |b| {
@@ -498,10 +503,13 @@ pub(crate) fn read(
                         .budget()
                         .map_or(65536, |b| b.limits().attribute_list_records)
                 {
-                    return Err(list_source.context().error(
-                        "expand NTFS attribute list",
-                        unsupported("too many ATTRIBUTE_LIST records"),
-                    ));
+                    return Err(list_source
+                        .context()
+                        .error(
+                            "expand NTFS attribute list",
+                            unsupported("too many ATTRIBUTE_LIST records"),
+                        )
+                        .into());
                 }
                 let extra = ntfs.file(cursor, number).map_err(ntfs_error)?;
                 if extra.sequence_number() != sequence {
@@ -683,7 +691,8 @@ pub(crate) fn read(
             }
             Ok(())
         })()
-        .map_err(|e| context.error("capture NTFS attribute", e))?;
+        .map_err(|e| context.error("capture NTFS attribute", e))
+        .map_err(io::Error::from)?;
     }
     normalize_ea(&mut result.extended_attributes)?;
     if !result.reparse_data.is_empty() {

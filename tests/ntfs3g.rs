@@ -366,7 +366,16 @@ fn caller_tightened_metadata_cache_attribute_and_work_limits_reject_real_ntfs() 
             "{name}: {error}"
         );
         assert!(error.to_string().contains(name), "{name}: {error}");
-        assert!(error.get_ref().unwrap().is::<virtdisk::ReadError>());
+        assert!(
+            error
+                .get_ref()
+                .unwrap()
+                .downcast_ref::<virtdisk::io::Error>()
+                .unwrap()
+                .get_ref()
+                .unwrap()
+                .is::<virtdisk::ReadError>()
+        );
     }
     let budget = virtdisk::ReadBudget::new(ParserLimits::default()).unwrap();
     budget
@@ -429,7 +438,16 @@ fn caller_tightened_depth_rejects_a_real_directory_subtree_without_modifying_vol
     let error = volume.capture_manifest().err().unwrap();
     assert_eq!(error.kind(), std::io::ErrorKind::Unsupported);
     assert!(error.to_string().contains("recursion"));
-    assert!(error.get_ref().unwrap().is::<virtdisk::ReadError>());
+    assert!(
+        error
+            .get_ref()
+            .unwrap()
+            .downcast_ref::<virtdisk::io::Error>()
+            .unwrap()
+            .get_ref()
+            .unwrap()
+            .is::<virtdisk::ReadError>()
+    );
     assert_eq!(digest(&image), before);
 }
 
@@ -484,6 +502,10 @@ fn caller_tightened_attribute_list_limit_rejects_windows_extension_records() {
     assert_eq!(error.kind(), std::io::ErrorKind::Unsupported);
     assert!(error.to_string().contains("ATTRIBUTE_LIST"));
     let context = &error
+        .get_ref()
+        .unwrap()
+        .downcast_ref::<virtdisk::io::Error>()
+        .unwrap()
         .get_ref()
         .unwrap()
         .downcast_ref::<virtdisk::ReadError>()

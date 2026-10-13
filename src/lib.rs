@@ -221,7 +221,9 @@ impl Volume {
             .filter(|b| b.limits() == limits)
             .map_or_else(|| virtdisk::ReadBudget::new(limits), Ok)?;
         let source = budget.reader(source);
-        Self::open_inner(source).map_err(|e| context.error("open NTFS volume", e))
+        Self::open_inner(source)
+            .map_err(|e| context.error("open NTFS volume", e))
+            .map_err(io::Error::from)
     }
 
     fn open_inner(source: Arc<dyn ReadAt>) -> io::Result<Self> {
@@ -352,7 +354,8 @@ impl Volume {
         context.record = Some(id);
         let attributes =
             attributes::read(&self.ntfs, self.source.clone(), self.geometry, file, cursor)
-                .map_err(|e| context.error("read NTFS attributes", e))?;
+                .map_err(|e| context.error("read NTFS attributes", e))
+                .map_err(io::Error::from)?;
         // Include conservative map, Arc, contextual-reader and per-stream overhead.
         let bytes = (1024
             + attributes.streams.len() * 1024
@@ -411,6 +414,7 @@ impl Volume {
     ) -> io::Result<Manifest> {
         self.capture_manifest_inner(include)
             .map_err(|e| self.source.context().error("capture NTFS tree", e))
+            .map_err(io::Error::from)
     }
     fn capture_manifest_inner(
         &self,
@@ -528,11 +532,13 @@ impl Volume {
                 context.path = Some(path.clone());
                 let attrs = self
                     .read_attributes(&file, &mut cursor)
-                    .map_err(|e| context.clone().error("capture NTFS entry", e))?;
+                    .map_err(|e| context.clone().error("capture NTFS entry", e))
+                    .map_err(io::Error::from)?;
                 let id = nodes.len();
                 let node = self
                     .node(&file, attrs, Some(parent), name, short)
-                    .map_err(|e| context.error("capture NTFS metadata", e))?;
+                    .map_err(|e| context.error("capture NTFS metadata", e))
+                    .map_err(io::Error::from)?;
                 if file.is_directory() && node.reparse_data.is_empty() {
                     if !directories.insert(file.file_record_number()) {
                         return Err(invalid("NTFS directory cycle or alias"));
@@ -577,6 +583,7 @@ impl Volume {
         context.stream = Some(stream_name.to_vec());
         self.read_file_inner(path, stream_name)
             .map_err(|e| context.error("locate NTFS stream", e))
+            .map_err(io::Error::from)
     }
     fn read_file_inner(
         &self,
@@ -857,13 +864,16 @@ mod policy_tests {
         fn len(&self) -> u64 {
             self.0.len() as u64
         }
-        fn read_exact_at(&self, offset: u64, output: &mut [u8]) -> io::Result<()> {
-            let bytes = self
-                .0
-                .get(offset as usize..offset as usize + output.len())
-                .ok_or(io::ErrorKind::UnexpectedEof)?;
-            output.copy_from_slice(bytes);
-            Ok(())
+        fn read_exact_at(&self, offset: u64, output: &mut [u8]) -> virtdisk::io::Result<()> {
+            (|| -> io::Result<()> {
+                let bytes = self
+                    .0
+                    .get(offset as usize..offset as usize + output.len())
+                    .ok_or(io::ErrorKind::UnexpectedEof)?;
+                output.copy_from_slice(bytes);
+                Ok(())
+            })()
+            .map_err(virtdisk::io::Error::from)
         }
     }
     #[test]
@@ -874,6 +884,15 @@ mod policy_tests {
         assert_eq!(error.kind(), io::ErrorKind::Unsupported);
         assert!(error.to_string().contains("BitLocker"));
         assert!(error.to_string().contains("decrypt"));
-        assert!(error.get_ref().unwrap().is::<virtdisk::ReadError>());
+        assert!(
+            error
+                .get_ref()
+                .unwrap()
+                .downcast_ref::<virtdisk::io::Error>()
+                .unwrap()
+                .get_ref()
+                .unwrap()
+                .is::<virtdisk::ReadError>()
+        );
     }
 }
